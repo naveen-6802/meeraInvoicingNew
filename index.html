@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meera Invoice Generator</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+<style>
+body { background: #f7f7f7; }
+</style>
+</head>
+<body class="p-4">
+<h1 class="text-3xl font-bold text-center mb-6 text-red-600">Meera Invoice Generator</h1>
+
+<div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-lg border border-red-400">
+  <h2 class="text-xl font-bold mb-4">Invoice Details</h2>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div>
+      <label>Order No.</label>
+      <input id="orderNo" class="w-full border p-2 rounded" />
+    </div>
+
+    <div>
+      <label>Invoice Date</label>
+      <input id="invoiceDate" type="date" class="w-full border p-2 rounded" />
+    </div>
+
+    <div>
+      <label>Delivery Date</label>
+      <input id="deliveryDate" type="date" class="w-full border p-2 rounded" />
+    </div>
+  </div>
+
+  <h2 class="text-xl font-bold mt-6 mb-4">Customer Details</h2>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div>
+      <label>Name</label>
+      <input id="custName" class="w-full border p-2 rounded" />
+    </div>
+
+    <div>
+      <label>Contact Number</label>
+      <input id="custContact" class="w-full border p-2 rounded" />
+    </div>
+
+    <div>
+      <label>Address</label>
+      <input id="custAddress" class="w-full border p-2 rounded" />
+    </div>
+  </div>
+
+  <h2 class="text-xl font-bold mt-6 mb-4">Products</h2>
+  <table id="productTable" class="w-full border mb-4">
+    <thead class="bg-gray-200">
+      <tr>
+        <th class="border p-2">Article</th>
+        <th class="border p-2">Color</th>
+        <th class="border p-2">Size</th>
+        <th class="border p-2">Fabric</th>
+        <th class="border p-2">Design No</th>
+        <th class="border p-2">Description</th>
+        <th class="border p-2">Qty</th>
+        <th class="border p-2">Amount</th>
+        <th class="border p-2">Remove</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <button onclick="addRow()" class="bg-red-600 text-white px-4 py-2 rounded">Add Product</button>
+
+  <h2 class="text-xl font-bold mt-6 mb-4">Payment</h2>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div>
+      <label>Total Amount</label>
+      <input id="totalAmount" class="w-full border p-2 rounded bg-gray-100" disabled />
+    </div>
+
+    <div>
+      <label>Paid Amount</label>
+      <input id="paidAmount" oninput="updateRemaining()" class="w-full border p-2 rounded" />
+    </div>
+
+    <div>
+      <label>Remaining Amount</label>
+      <input id="remainingAmount" class="w-full border p-2 rounded bg-gray-100" disabled />
+    </div>
+  </div>
+
+  <div class="flex gap-4 mt-8">
+    <button onclick="downloadPDF()" class="bg-red-600 text-white px-4 py-2 rounded">Download Invoice</button>
+    <button onclick="shareWhatsApp()" class="bg-red-700 text-white px-4 py-2 rounded">Share via WhatsApp</button>
+  </div>
+</div>
+
+
+<script>
+// Domain Protection
+(function(){
+  const allowed = ["naveen-6802.github.io"]; // allowed domain
+  const host = window.location.host;
+  if(!allowed.includes(host)){
+    document.body.innerHTML = "<h1 style='color:red;text-align:center;margin-top:50px;font-size:28px;'>Unauthorized Domain</h1><p style='text-align:center;font-size:18px;'>This invoice generator is licensed only for Meera and restricted to the owner's domain.</p>";
+    throw new Error("Unauthorized domain");
+  }
+})();
+
+document.getElementById("invoiceDate").value = new Date().toISOString().split("T")[0];
+
+function addRow() {
+  let table = document.querySelector("#productTable tbody");
+  let row = document.createElement("tr");
+  row.innerHTML = `
+    <td class='border p-1'><input class='w-full p-1 border rounded article'></td>
+    <td class='border p-1'><input class='w-full p-1 border rounded color'></td>
+    <td class='border p-1'><input class='w-full p-1 border rounded size'></td>
+    <td class='border p-1'><input class='w-full p-1 border rounded fabric'></td>
+    <td class='border p-1'><input class='w-full p-1 border rounded design'></td>
+    <td class='border p-1'><input class='w-full p-1 border rounded desc'></td>
+    <td class='border p-1'><input class='w-full p-1 border rounded qty' oninput='calculateTotal()'></td>
+    <td class='border p-1'><input class='w-full p-1 border rounded amount' oninput='calculateTotal()'></td>
+    <td class='border p-1 text-center'><button onclick='this.parentNode.parentNode.remove(); calculateTotal();' class='text-red-600'>X</button></td>
+  `;
+  table.appendChild(row);
+}
+
+function calculateTotal() {
+  let total = 0;
+  document.querySelectorAll(".amount").forEach((amt, i) => {
+    let qty = document.querySelectorAll(".qty")[i].value;
+    total += (parseFloat(amt.value) || 0) * (parseFloat(qty) || 0);
+  });
+  document.getElementById("totalAmount").value = total;
+  updateRemaining();
+}
+
+function updateRemaining() {
+  let total = parseFloat(document.getElementById("totalAmount").value) || 0;
+  let paid = parseFloat(document.getElementById("paidAmount").value) || 0;
+  document.getElementById("remainingAmount").value = total - paid;
+}
+
+async function downloadPDF() {
+  const { jsPDF } = window.jspdf;
+  let pdf = new jsPDF();
+
+  pdf.setFontSize(20);
+  pdf.text("Meera - Kishangarh", 10, 10);
+  pdf.setFontSize(12);
+  pdf.text("Mobile: +91-9166609666", 10, 18);
+
+  pdf.text(`Order No: ${orderNo.value}`, 10, 30);
+  pdf.text(`Invoice Date: ${invoiceDate.value}`, 10, 36);
+  pdf.text(`Delivery Date: ${deliveryDate.value}`, 10, 42);
+
+  pdf.text(`Customer: ${custName.value}`, 10, 54);
+  pdf.text(`Contact: ${custContact.value}`, 10, 60);
+  pdf.text(`Address: ${custAddress.value}`, 10, 66);
+
+  let rows = [];
+  document.querySelectorAll("#productTable tbody tr").forEach(tr => {
+    let row = [];
+    tr.querySelectorAll("input").forEach(inp => row.push(inp.value));
+    rows.push(row);
+  });
+
+  pdf.autoTable({
+    head: [["Article","Color","Size","Fabric","Design","Desc","Qty","Amount"]],
+    body: rows,
+    startY: 75
+  });
+
+  let finalY = pdf.lastAutoTable.finalY + 10;
+  pdf.text(`Total Amount: ${totalAmount.value}`, 10, finalY);
+  pdf.text(`Paid Amount: ${paidAmount.value}`, 10, finalY + 6);
+  pdf.text(`Remaining: ${remainingAmount.value}`, 10, finalY + 12);
+
+  let filename = `Invoice_${orderNo.value}_${custName.value}.pdf`;
+  pdf.save(filename);
+}
+
+function shareWhatsApp() {
+  let num = custContact.value.replace(/\D/g, "");
+  let msg = encodeURIComponent(`Hello ${custName.value}, please find your invoice from Meera, Kishangarh attached.`);
+  window.open(`https://wa.me/${num}?text=${msg}`, "_blank");
+}
+</script>
+
+</body>
+</html>
